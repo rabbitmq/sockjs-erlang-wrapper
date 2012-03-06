@@ -1,0 +1,4 @@
+sockjs-erlang-git/
+ebin/
+build/
+dist/
