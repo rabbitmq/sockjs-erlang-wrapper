@@ -1,4 +1,5 @@
 APP_NAME:=sockjs
+DEPS:=cowboy-wrapper
 
 UPSTREAM_GIT:=https://github.com/sockjs/sockjs-erlang.git
 UPSTREAM_REVISION:=d3b1a8b0ee16bf5422a02fef5aebe3c812821e7d
