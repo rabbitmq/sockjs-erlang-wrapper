@@ -1,4 +1,5 @@
 sockjs-erlang-git/
 ebin/
 build/
+hash.mk
 dist/
