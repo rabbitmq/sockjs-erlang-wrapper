@@ -2,7 +2,7 @@ APP_NAME:=sockjs
 DEPS:=cowboy-wrapper
 
 UPSTREAM_GIT:=https://github.com/sockjs/sockjs-erlang.git
-UPSTREAM_REVISION:=d3b1a8b0ee16bf5422a02fef5aebe3c812821e7d
+UPSTREAM_REVISION:=92d4ba4e41f6e110f97cb50ea0810e34e9b8ef4f
 RETAIN_ORIGINAL_VERSION:=true
 WRAPPER_PATCHES:=\
 	0000-remove-spec-patch.diff
