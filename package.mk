@@ -16,6 +16,7 @@ ERLC_OPTS:=$(ERLC_OPTS) -D no_specs
 
 define construct_app_commands
 	cp $(CLONE_DIR)/LICENSE-* $(APP_DIR)
+	rm $(APP_DIR)/ebin/pmod_pt.beam
 endef
 
 define package_rules
