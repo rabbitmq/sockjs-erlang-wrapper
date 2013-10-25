@@ -1,0 +1,54 @@
+diff --git a/src/sockjs_cowboy_handler.erl b/src/sockjs_cowboy_handler.erl
+index 3b1ffe3..00c64c5 100644
+--- a/src/sockjs_cowboy_handler.erl
++++ b/src/sockjs_cowboy_handler.erl
+@@ -31,20 +32,31 @@ terminate(_Req, _Service) ->
+ %% --------------------------------------------------------------------------
+ 
+ websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->
+-    Req0 = Logger(Service, {cowboy, Req}, websocket),
++    Req3 = case cowboy_http_req:header(<<"Sec-Websocket-Protocol">>, Req) of
++               {undefined, Req1} ->
++                   Req1;
++               {SubProtocols, Req1} ->
++                   SelectedSubProtocol = choose_subprotocol(SubProtocols),
++                   {ok, Req2} = cowboy_http_req:set_resp_header(
++                                  <<"Sec-Websocket-Protocol">>,
++                                  SelectedSubProtocol, Req1),
++                   Req2
++           end,
++
++    Req4 = Logger(Service, {cowboy, Req3}, websocket),
+ 
+     Service1 = Service#service{disconnect_delay = 5*60*1000},
+ 
+-    {Info, Req1} = sockjs_handler:extract_info(Req0),
++    {Info, Req5} = sockjs_handler:extract_info(Req4),
+     SessionPid = sockjs_session:maybe_create(undefined, Service1, Info),
+-    {RawWebsocket, {cowboy, Req3}} =
+-        case sockjs_handler:get_action(Service, Req1) of
+-            {{match, WS}, Req2} when WS =:= websocket orelse
++    {RawWebsocket, {cowboy, Req7}} =
++        case sockjs_handler:get_action(Service, Req5) of
++            {{match, WS}, Req6} when WS =:= websocket orelse
+                                      WS =:= rawwebsocket ->
+-                {WS, Req2}
++                {WS, Req6}
+         end,
+     self() ! go,
+-    {ok, Req3, {RawWebsocket, SessionPid}}.
++    {ok, Req7, {RawWebsocket, SessionPid}}.
+ 
+ websocket_handle({text, Data}, Req, {RawWebsocket, SessionPid} = S) ->
+     case sockjs_ws_handler:received(RawWebsocket, SessionPid, Data) of
+@@ -69,3 +81,10 @@ websocket_info(shutdown, Req, S) ->
+ websocket_terminate(_Reason, _Req, {RawWebsocket, SessionPid}) ->
+     sockjs_ws_handler:close(RawWebsocket, SessionPid),
+     ok.
++
++%% --------------------------------------------------------------------------
++
++%% todo: responsibility for making a selection lies elsewhere
++choose_subprotocol(SubProtocols) when is_binary(SubProtocols) ->
++    [Last | _] = lists:reverse(lists:sort(re:split(SubProtocols, ", *"))),
++    Last.
