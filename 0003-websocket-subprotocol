@@ -1,17 +1,22 @@
 diff --git a/src/sockjs_cowboy_handler.erl b/src/sockjs_cowboy_handler.erl
-index 3b1ffe3..00c64c5 100644
+index 3b1ffe3..6250352 100644
 --- a/src/sockjs_cowboy_handler.erl
 +++ b/src/sockjs_cowboy_handler.erl
-@@ -31,20 +32,31 @@ terminate(_Req, _Service) ->
+@@ -30,21 +30,35 @@ terminate(_Req, _Service) ->
+ 
  %% --------------------------------------------------------------------------
  
- websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->
+-websocket_init(_TransportName, Req, Service = #service{logger = Logger}) ->
 -    Req0 = Logger(Service, {cowboy, Req}, websocket),
++websocket_init(_TransportName, Req,
++               Service = #service{logger        = Logger,
++                                  subproto_pref = SubProtocolPref}) ->
 +    Req3 = case cowboy_http_req:header(<<"Sec-Websocket-Protocol">>, Req) of
 +               {undefined, Req1} ->
 +                   Req1;
 +               {SubProtocols, Req1} ->
-+                   SelectedSubProtocol = choose_subprotocol(SubProtocols),
++                   SelectedSubProtocol =
++                     choose_subprotocol(SubProtocols, SubProtocolPref),
 +                   {ok, Req2} = cowboy_http_req:set_resp_header(
 +                                  <<"Sec-Websocket-Protocol">>,
 +                                  SelectedSubProtocol, Req1),
@@ -41,14 +46,48 @@ index 3b1ffe3..00c64c5 100644
  
  websocket_handle({text, Data}, Req, {RawWebsocket, SessionPid} = S) ->
      case sockjs_ws_handler:received(RawWebsocket, SessionPid, Data) of
-@@ -69,3 +81,10 @@ websocket_info(shutdown, Req, S) ->
+@@ -69,3 +83,15 @@ websocket_info(shutdown, Req, S) ->
  websocket_terminate(_Reason, _Req, {RawWebsocket, SessionPid}) ->
      sockjs_ws_handler:close(RawWebsocket, SessionPid),
      ok.
 +
 +%% --------------------------------------------------------------------------
 +
-+%% todo: responsibility for making a selection lies elsewhere
-+choose_subprotocol(SubProtocols) when is_binary(SubProtocols) ->
-+    [Last | _] = lists:reverse(lists:sort(re:split(SubProtocols, ", *"))),
-+    Last.
++choose_subprotocol(SubProtocols, Pref) when is_binary(SubProtocols) ->
++    choose_subprotocol(re:split(SubProtocols, ", *"), Pref);
++choose_subprotocol(SubProtocols, default) ->
++    erlang:hd(lists:reverse(lists:sort(SubProtocols)));
++choose_subprotocol(SubProtocols, Pref) ->
++    case lists:filter(fun (E) -> lists:member(E, SubProtocols) end, Pref) of
++        [Hd | _] -> Hd;
++        []       -> choose_subprotocol(SubProtocols, default)
++    end.
+diff --git a/src/sockjs_handler.erl b/src/sockjs_handler.erl
+index b706453..a4148f5 100644
+--- a/src/sockjs_handler.erl
++++ b/src/sockjs_handler.erl
+@@ -29,7 +29,9 @@ init_state(Prefix, Callback, State, Options) ->
+              response_limit =
+                  proplists:get_value(response_limit, Options, 128*1024),
+              logger =
+-                 proplists:get_value(logger, Options, fun default_logger/3)
++                 proplists:get_value(logger, Options, fun default_logger/3),
++             subproto_pref =
++                 proplists:get_value(subproto_pref, Options, default)
+             }.
+ 
+ %% --------------------------------------------------------------------------
+diff --git a/src/sockjs_internal.hrl b/src/sockjs_internal.hrl
+index 629b2fe..eed5597 100644
+--- a/src/sockjs_internal.hrl
++++ b/src/sockjs_internal.hrl
+@@ -15,7 +15,8 @@
+                   disconnect_delay , %%  non_neg_integer()
+                   heartbeat_delay  , %%  non_neg_integer()
+                   response_limit   , %%  non_neg_integer()
+-                  logger            %%  logger()
++                  logger           , %%  logger()
++                  subproto_pref      %%  [binary()]
+                   }).
+ 
+ %% -type(service() :: #service{}).
