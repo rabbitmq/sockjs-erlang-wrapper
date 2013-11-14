@@ -1,5 +1,5 @@
 diff --git a/src/sockjs_cowboy_handler.erl b/src/sockjs_cowboy_handler.erl
-index 3b1ffe3..6250352 100644
+index 3b1ffe3..d2f05ae 100644
 --- a/src/sockjs_cowboy_handler.erl
 +++ b/src/sockjs_cowboy_handler.erl
 @@ -30,21 +30,35 @@ terminate(_Req, _Service) ->
@@ -16,7 +16,7 @@ index 3b1ffe3..6250352 100644
 +                   Req1;
 +               {SubProtocols, Req1} ->
 +                   SelectedSubProtocol =
-+                     choose_subprotocol(SubProtocols, SubProtocolPref),
++                     choose_subprotocol_bin(SubProtocols, SubProtocolPref),
 +                   {ok, Req2} = cowboy_http_req:set_resp_header(
 +                                  <<"Sec-Websocket-Protocol">>,
 +                                  SelectedSubProtocol, Req1),
@@ -53,17 +53,17 @@ index 3b1ffe3..6250352 100644
 +
 +%% --------------------------------------------------------------------------
 +
-+choose_subprotocol(SubProtocols, Pref) when is_binary(SubProtocols) ->
-+    choose_subprotocol(re:split(SubProtocols, ", *"), Pref);
-+choose_subprotocol(SubProtocols, default) ->
++choose_subprotocol_bin(SubProtocols, Pref) ->
++    choose_subprotocol(re:split(SubProtocols, ", *"), Pref).
++choose_subprotocol(SubProtocols, undefined) ->
 +    erlang:hd(lists:reverse(lists:sort(SubProtocols)));
 +choose_subprotocol(SubProtocols, Pref) ->
 +    case lists:filter(fun (E) -> lists:member(E, SubProtocols) end, Pref) of
 +        [Hd | _] -> Hd;
-+        []       -> choose_subprotocol(SubProtocols, default)
++        []       -> choose_subprotocol(SubProtocols, undefined)
 +    end.
 diff --git a/src/sockjs_handler.erl b/src/sockjs_handler.erl
-index b706453..a4148f5 100644
+index b706453..81d4ef7 100644
 --- a/src/sockjs_handler.erl
 +++ b/src/sockjs_handler.erl
 @@ -29,7 +29,9 @@ init_state(Prefix, Callback, State, Options) ->
@@ -73,7 +73,7 @@ index b706453..a4148f5 100644
 -                 proplists:get_value(logger, Options, fun default_logger/3)
 +                 proplists:get_value(logger, Options, fun default_logger/3),
 +             subproto_pref =
-+                 proplists:get_value(subproto_pref, Options, default)
++                 proplists:get_value(subproto_pref, Options)
              }.
  
  %% --------------------------------------------------------------------------
